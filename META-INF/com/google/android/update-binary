@@ -1,0 +1,61 @@
+#!/sbin/sh
+#
+# dKitchen®
+# @AbrahamGC & @A.Raul
+#
+
+OUTFD=/proc/self/fd/$2;
+ZIPFILE="$3";
+
+print() { echo -e "ui_print $1\nui_print" >> $OUTFD; }
+
+extract_file() { mkdir -p "$(dirname "$2")"; unzip -o "$ZIPFILE" "$1" -p > "$2"; }
+
+getprop() {
+  local value=""
+  value="$(test -e /sbin/getprop && /sbin/getprop $1)"
+  [ -z "$value" ] && value="$(grep "^$1=" /default.prop | cut -d= -f2)"
+  [ -z "$value" ] && abort "##   CAN'T READ REQUESTED VALUE." || echo "$value"
+}
+
+getbootloader() {
+  local value=""
+  value="$(test -e /sbin/getprop && /sbin/getprop ro.boot.bootloader)"
+  [ -z "$value" ] && value="$(cat /proc/cmdline | tr ' ' '\n' | grep "androidboot.bootloader=" | cut -d= -f2)"
+  [ -z "$value" ] && abort "##   CAN'T READ BOOTLOADER." || echo "$value"
+}
+
+abort() { print "$*"; exit 0; }
+
+if readlink /proc/$$/fd/$2 2>/dev/null | grep /tmp >/dev/null; then
+  OUTFD=0
+  for FD in $( ls /proc/$$/fd ); do
+    if readlink /proc/$$/fd/$FD 2>/dev/null | grep pipe >/dev/null; then
+      if ps | grep " 3 $FD " | grep -v grep >/dev/null; then
+      	OUTFD=/proc/self/fd/$FD
+      	break
+      fi
+    fi
+  done
+fi
+
+getbootloader | grep -q '[GN]95[05][FN]' || abort "##   DEVICE NOT COMPATIBLE. BL/CP NOT UPDATED."
+
+device="$(getprop ro.product.device)"
+
+getbootloader | grep -q '[GN]95[05]N' && device="${device}N"
+
+print "##"
+print "##   Installing ${device} BL/CP ..."
+print "##"
+
+extract_file ${device}/sboot.bin /dev/block/platform/11120000.ufs/by-name/BOTA0
+extract_file ${device}/cm.bin /dev/block/platform/11120000.ufs/by-name/BOTA1
+extract_file ${device}/modem.bin /dev/block/platform/11120000.ufs/by-name/RADIO
+
+print "##"
+print "##   Done! Rebooting ..."
+print "##"
+sleep 2
+
+/sbin/reboot fota_bl || /sbin/reboot system
