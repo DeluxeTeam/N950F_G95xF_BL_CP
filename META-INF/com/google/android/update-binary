@@ -9,7 +9,7 @@ ZIPFILE="$3";
 
 print() { echo -e "ui_print $1\nui_print" >> $OUTFD; }
 
-extract_file() { mkdir -p "$(dirname "$2")"; unzip -o "$ZIPFILE" "$1" -p > "$2"; }
+extract_file() { unzip -o "$ZIPFILE" "${1}.tar.xz" -p | tar -OJxf - "$2" | cat > "$3"; }
 
 getprop() {
   local value=""
@@ -49,9 +49,9 @@ print "##"
 print "##   Installing ${device} BL/CP ..."
 print "##"
 
-extract_file ${device}/sboot.bin /dev/block/platform/11120000.ufs/by-name/BOTA0
-extract_file ${device}/cm.bin /dev/block/platform/11120000.ufs/by-name/BOTA1
-extract_file ${device}/modem.bin /dev/block/platform/11120000.ufs/by-name/RADIO
+extract_file ${device} sboot.bin /dev/block/platform/11120000.ufs/by-name/BOTA0
+extract_file ${device} cm.bin /dev/block/platform/11120000.ufs/by-name/BOTA1
+extract_file ${device} modem.bin /dev/block/platform/11120000.ufs/by-name/RADIO
 
 print "##"
 print "##   Done! Rebooting ..."
